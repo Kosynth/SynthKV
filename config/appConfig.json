@@ -1,0 +1,12 @@
+{
+    "block_size": 4096,
+    "cache_size": 4,
+    "memtable_size": 1000,
+    "wal_segment_size": 500,
+    "compaction_algorithm": "size-tiered", 
+    "lsm_tree_levels": 4,
+    "token_bucket": {
+        "capacity": 3,
+        "reset_frequency_seconds": 1
+    }
+}
