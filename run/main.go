@@ -3,37 +3,71 @@ package main
 import (
 	"KVwithWAL/config"
 	"KVwithWAL/initUtils"
+	"KVwithWAL/model/containers"
 	"KVwithWAL/model/records"
 	"KVwithWAL/storageTools"
 	"fmt"
 )
 
 func main() {
-	cfg, _ := initUtils.InitializeConfiguration("config/appConfig.json")
+	InitAndPrintCFG()
 
 	//EVERYTHING BELOW THIS LINE IS FOR TESTING PURPOSES
+	TestSerialization()
+	TestIfTheCacheStillWorks()
+	GenerateRandomRecordsAndSaveToWal()
+	ReadFromWalAndPrint()
+}
 
-	//Create a new configuration, from file, if possible
-	fmt.Printf("Config: %+v\n", cfg)
+func GenerateRandomRecordsAndSaveToWal() {
+	randomRecords := records.GenerateRandomRecords(1000)
+	blockManager := storageTools.NewBlockManager(config.GetAppConfig().PathToWALFile)
+	walTable := containers.NewWalTable("123", blockManager)
 
-	//Tests for records serialization and deserialization
-	basicTestData := records.CreateRecord(records.Put, "key", []byte("value"))
-	fmt.Printf("Byte: %+v\n", records.ToBytes(basicTestData))
-	fmt.Printf("Hex: ")
-	for _, b := range records.ToBytes(basicTestData) {
-		fmt.Printf("%02x ", b)
+	for _, r := range randomRecords {
+		err := walTable.AddRecord(r)
+		if err != nil {
+			fmt.Printf("Error adding record: %v\n", err)
+			return
+		}
 	}
-	fmt.Println()
-	encodedData := records.ToBytes(basicTestData)
-	decodedRecord := records.FromBytes(encodedData)
-	fmt.Printf("Before serializing: %+v\n", basicTestData)
-	fmt.Printf("After deserializing: %+v\n", decodedRecord)
-
+	ReadRecords, err := walTable.ReadAllRecords()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf(records.GetJsonRecord(ReadRecords[0]))
+}
+func ReadFromWalAndPrint() {
+	blockManager := storageTools.NewBlockManager("Records.wal")
+	walTable := containers.NewWalTable("test-uuid", blockManager)
+	err := walTable.LoadSegments()
+	if err != nil {
+		fmt.Println("Error loading segments:", err)
+		return
+	}
+	readRecords, err := walTable.ReadAllRecords()
+	if err != nil {
+		fmt.Println("Error reading records:", err)
+		return
+	}
+	fmt.Print("[")
+	objectNum := 0
+	for _, record := range readRecords {
+		objectNum++
+		jsonStr := records.GetJsonRecord(record)
+		fmt.Printf("\"objectNum\":\"%d\"", objectNum)
+		fmt.Println(jsonStr)
+		fmt.Print(",")
+	}
+	fmt.Print("]")
+}
+func TestIfTheCacheStillWorks() {
 	//Tests for saving records to a file via BlockManager
 	data := []byte{}
 	file := "testFile.txt"
 	blockManager := storageTools.NewBlockManager(file)
-	randomRecords := records.GenerateRandomRecords()
+	randomRecords := records.GenerateRandomRecords(100)
 	//Testing for multiple blocks
 	for _, r := range randomRecords {
 		data = append(data, records.ToBytes(r)...)
@@ -84,4 +118,22 @@ func main() {
 
 	}
 	blockManager.Cache.PrintCacheState()
+}
+func InitAndPrintCFG() {
+	cfg, _ := initUtils.InitializeConfiguration("config/appConfig.json")
+	fmt.Printf("Config: %+v\n", cfg)
+}
+
+func TestSerialization() {
+	basicTestData := records.GenerateRandomRecords(1)[0]
+	fmt.Printf("Byte: %+v\n", records.ToBytes(basicTestData))
+	fmt.Printf("Hex: ")
+	for _, b := range records.ToBytes(basicTestData) {
+		fmt.Printf("%02x ", b)
+	}
+	fmt.Println()
+	encodedData := records.ToBytes(basicTestData)
+	decodedRecord := records.FromBytes(encodedData)
+	fmt.Printf("Before serializing: %+v\n", basicTestData)
+	fmt.Printf("After deserializing: %+v\n", decodedRecord)
 }

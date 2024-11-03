@@ -16,6 +16,7 @@ type Config struct {
 	LsmTreeLevels           int               `json:"lsm_tree_levels"`
 	TokenBucket             TokenBucketConfig `json:"token_bucket"`
 	StaticWALAttributesSize int
+	PathToWALFile           string
 }
 
 type TokenBucketConfig struct {
@@ -31,8 +32,8 @@ func InitConfig(filepath string, staticSize int) (*Config, error) {
 	once.Do(func() {
 		// Default values declared here
 		appConfig = &Config{
-			BlockSize:           4096,
-			CacheSize:           1048576,
+			BlockSize:           4096, //size in bytes, 4096 in my system, not sure how to get this value from os.*
+			CacheSize:           1024, //size in blocks 4MB buffer by default
 			MemtableSize:        1000,
 			WalSegmentSize:      500,
 			CompactionAlgorithm: "size-tiered",
@@ -42,6 +43,7 @@ func InitConfig(filepath string, staticSize int) (*Config, error) {
 				RefillInterval: 1,
 			},
 			StaticWALAttributesSize: staticSize,
+			PathToWALFile:           "Records.wal",
 		}
 		// Overwrite if config file contains values
 		file, fileErr := os.Open(filepath)
