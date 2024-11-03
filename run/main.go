@@ -9,11 +9,11 @@ import (
 )
 
 func main() {
+	cfg, _ := initUtils.InitializeConfiguration("config/appConfig.json")
 
 	//EVERYTHING BELOW THIS LINE IS FOR TESTING PURPOSES
 
 	//Create a new configuration, from file, if possible
-	cfg, _ := initUtils.InitializeConfiguration("config/appConfig.json")
 	fmt.Printf("Config: %+v\n", cfg)
 
 	//Tests for records serialization and deserialization

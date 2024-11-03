@@ -1,6 +1,7 @@
 package containers
 
 import (
+	"KVwithWAL/config"
 	"KVwithWAL/model/records"
 	"os"
 )
@@ -12,7 +13,7 @@ type WalSegment struct {
 type WalTable struct {
 	uuid        string
 	file        *os.File
-	segmentSize int
+	segmentSize config.GetAppConfig().WalSegmentSize
 	segments    []WalSegment
 }
 
