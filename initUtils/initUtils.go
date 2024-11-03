@@ -7,9 +7,10 @@ import (
 )
 
 func InitializeConfiguration(filepath string) (*config.Config, error) {
+
 	totalSize := 0
 	walRecordType := reflect.TypeOf((*records.WalRecord)(nil)).Elem()
-
+	//This should initialize the header size value, but It turned out to be harder than I thought to build it dynamically, as I need only a few fields from the struct in the header
 	for i := 0; i < walRecordType.NumField(); i++ {
 		field := walRecordType.Field(i)
 		switch field.Type.Kind() {

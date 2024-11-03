@@ -1,8 +1,9 @@
 package records
 
 import (
-	"KVwithWAL/config"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"hash/crc32"
 	"math/rand"
 	"time"
@@ -16,45 +17,43 @@ const (
 )
 
 type WalRecord struct {
-	cRC32           uint32
-	keySize         uint64
-	valueSize       uint64
-	totalSize       uint64
-	processedToWAL  bool
-	addedToMemTable bool
-	tombstone       bool
-	timeStamp       time.Time
-	operation       operationType
-	key             string
-	value           []byte
+	cRC32     uint32
+	keySize   uint64
+	valueSize uint64
+	totalSize uint64
+	tombstone bool
+	timeStamp time.Time
+	operation operationType
+	key       string
+	value     []byte
 }
 
-// Create WALRecord here, the data that needs filling here is CRC32, keySize, valueSize, tombStone, proccessedToWAL=false, AddedToMemtable=false, timestamp return WALRecord
+func GetJsonRecord(r WalRecord) string {
+	return fmt.Sprintf(
+		`{"key":"%s","value":"%s","timeStamp":"%s","tombstone":%t,"operation":%d}`,
+		r.key,
+		hex.EncodeToString(r.value),
+		r.timeStamp.Format(time.RFC3339Nano),
+		r.tombstone,
+		r.operation,
+	)
+}
+
+// Create WALRecord here, the data that needs filling here is CRC32, keySize, valueSize, tombStone, proccessedToWAL=false
 func CreateRecord(operation operationType, key string, value []byte) WalRecord {
 
 	record := WalRecord{
-		key:             key,
-		value:           value,
-		processedToWAL:  false,
-		addedToMemTable: false,
-		timeStamp:       time.Now(),
-		totalSize:       uint64(len(key) + len(value) + config.GetAppConfig().StaticWALAttributesSize),
-		cRC32:           uint32(0), //calculate this when converting to bytes
-		keySize:         uint64(len(key)),
-		valueSize:       uint64(len(value)),
-		tombstone:       false,
-		operation:       operation,
+		key:       key,
+		value:     value,
+		timeStamp: time.Now(),
+		totalSize: uint64(4 + 16 + 1 + 8 + 8 + len(key) + len(value)), //uint64(len(key) + len(value) + config.GetAppConfig().StaticWALAttributesSize),
+		cRC32:     uint32(0),                                          //calculate this when converting to bytes
+		keySize:   uint64(len(key)),
+		valueSize: uint64(len(value)),
+		tombstone: false,
+		operation: operation,
 	}
 	return record
-}
-
-func saveToWAL(record WalRecord) {
-	//Write to file here, first find the object that we're currently writing to, then call a function inside it, if successful, (set processedToWAL to true, add to processing query for MemTable, when MemTableQueueRecord is created, set addedToMemTable to true) if not, handle error
-}
-
-func readWALPage( /*set of WAL files goes here, how do i determine which one is the best*/ ) /*WALRecord*/ {
-	//
-	//Read from WAL files here, if successful, return WALRecord or a set of them, if not, handle error
 }
 
 func ToBytes(r WalRecord) []byte {
@@ -70,6 +69,9 @@ func ToBytes(r WalRecord) []byte {
 		case uint64:
 			binary.LittleEndian.PutUint64(data[offset:], v)
 			offset += length
+		case int64:
+			binary.LittleEndian.PutUint64(data[offset:], uint64(v))
+			offset += length
 		case bool:
 			if v {
 				data[offset] = 1
@@ -79,21 +81,24 @@ func ToBytes(r WalRecord) []byte {
 			offset++
 		case string:
 			bytes := []byte(v)
-			copy(data[offset:], []byte(v))
+			copy(data[offset:], bytes)
 			offset += len(bytes)
 		case []byte:
 			copy(data[offset:], v)
 			offset += length
 		}
 	}
+	//header
+	writeField(r.timeStamp.Unix(), 8) //why 16 bytes though? 2024-11-03T16:23:32.1519913+01:00 before 2024-11-03T16:47:48.9387203+01:00 7 positions anyway, no added precision
+	writeField(int64(r.timeStamp.Nanosecond()), 8)
+	//fmt.Printf("Time before serialization: %s\n", r.timeStamp.Format(time.RFC3339Nano))
+	writeField(r.tombstone, 1)
 
 	writeField(r.keySize, 8)
 	writeField(r.valueSize, 8)
-	writeField(r.tombstone, 1)
-	writeField(uint32(r.operation), 4)
+	//data
 	writeField(r.key, int(r.keySize))
 	writeField(r.value, int(r.valueSize))
-	writeField(uint64(r.timeStamp.UnixNano()), 8)
 
 	r.cRC32 = crc32.ChecksumIEEE(data[4:offset])
 	binary.LittleEndian.PutUint32(data[:4], r.cRC32)
@@ -101,32 +106,35 @@ func ToBytes(r WalRecord) []byte {
 }
 
 // #region TestingAndShit
-func FromBytes(data []byte) WalRecord { //only for testing
+
+func FromBytes(data []byte) WalRecord { //probably needs rewriting
 	var r WalRecord
 	offset := 0
-	r.cRC32 = binary.LittleEndian.Uint32(data[:4])
+	r.cRC32 = binary.LittleEndian.Uint32(data[offset:])
 	offset += 4
+	r.timeStamp = time.Unix(int64(binary.LittleEndian.Uint64(data[offset:])), int64(binary.LittleEndian.Uint64(data[offset+8:]))) //why 16 bytes though? 2024-11-03T16:23:32.1519913+01:00 before 2024-11-03T16:47:48.9387203+01:00 after 7 positions anyway, no added precision
+	offset += 16
+
+	r.tombstone = data[offset] == 1
+	offset++
+
 	r.keySize = binary.LittleEndian.Uint64(data[offset:])
 	offset += 8
 	r.valueSize = binary.LittleEndian.Uint64(data[offset:])
 	offset += 8
-	r.tombstone = data[offset] == 1
-	offset++
-	r.operation = operationType(binary.LittleEndian.Uint32(data[offset:]))
-	offset += 4
+
 	r.key = string(data[offset : offset+int(r.keySize)])
 	offset += int(r.keySize)
 	r.value = data[offset : offset+int(r.valueSize)]
 	offset += int(r.valueSize)
-	r.timeStamp = time.Unix(0, int64(binary.LittleEndian.Uint64(data[offset:])))
-	offset += 8
+
+	//fmt.Printf("Time after deserialization: %s\n", r.timeStamp.Format(time.RFC3339Nano))
 	return r
 }
-
-func GenerateRandomRecords() []WalRecord {
+func GenerateRandomRecords(count int) []WalRecord {
 	var records []WalRecord
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < count; i++ {
 		record := CreateRecord(operationType(rand.Intn(2)), generateRandomKey(), generateRandomValue())
 		records = append(records, record)
 	}
