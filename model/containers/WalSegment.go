@@ -20,7 +20,7 @@ func NewWalSegment(blockManager *storageTools.BlockManager, maxSegmentSize int64
 		blockManager:       blockManager,
 		startOffset:        startOffset,
 		currentOffset:      startOffset,
-		maxSegmentSize:     config.GetAppConfig().WalSegmentSize,
+		maxSegmentSize:     config.AppConfig.WalSegmentSize,
 		isWrittenToSStable: false,
 	}
 }

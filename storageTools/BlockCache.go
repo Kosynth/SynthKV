@@ -19,7 +19,7 @@ type BlockCache struct {
 
 func NewBlockCache() *BlockCache {
 	return &BlockCache{
-		capacity: config.GetAppConfig().CacheSize,
+		capacity: config.AppConfig.CacheSize,
 		items:    make(map[int]*list.Element),
 		order:    list.New(),
 	}

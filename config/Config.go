@@ -8,15 +8,16 @@ import (
 )
 
 type Config struct {
-	BlockSize               int               `json:"block_size"`
-	CacheSize               int               `json:"cache_size"`
-	MemtableSize            int               `json:"memtable_size"`
-	WalSegmentSize          int               `json:"wal_segment_size"`
-	CompactionAlgorithm     string            `json:"compaction_algorithm"`
-	LsmTreeLevels           int               `json:"lsm_tree_levels"`
-	TokenBucket             TokenBucketConfig `json:"token_bucket"`
-	StaticWALAttributesSize int
-	PathToWALFile           string
+	BlockSize           int               `json:"block_size"`
+	CacheSize           int               `json:"cache_size"`
+	MemtableSize        int               `json:"memtable_size"`
+	WalSegmentSize      int               `json:"wal_segment_size"`
+	CompactionAlgorithm string            `json:"compaction_algorithm"`
+	LsmTreeLevels       int               `json:"lsm_tree_levels"`
+	TokenBucket         TokenBucketConfig `json:"token_bucket"`
+	WalHeaderSize       int
+	PathToWALFile       string `json:"path_to_wal_file"`
+	LoggingLevel        string `json:"logging_level"`
 }
 
 type TokenBucketConfig struct {
@@ -24,14 +25,14 @@ type TokenBucketConfig struct {
 	RefillInterval int `json:"refill_interval"`
 }
 
-var appConfig *Config
+var AppConfig *Config
 var once sync.Once
 
-func InitConfig(filepath string, staticSize int) (*Config, error) {
+func InitConfig(filepath string, headerSize int) (*Config, error) {
 	var err error
 	once.Do(func() {
 		// Default values declared here
-		appConfig = &Config{
+		AppConfig = &Config{
 			BlockSize:           4096, //size in bytes, 4096 in my system, not sure how to get this value from os.*
 			CacheSize:           1024, //size in blocks 4MB buffer by default
 			MemtableSize:        1000,
@@ -42,8 +43,9 @@ func InitConfig(filepath string, staticSize int) (*Config, error) {
 				Capacity:       3,
 				RefillInterval: 1,
 			},
-			StaticWALAttributesSize: staticSize,
-			PathToWALFile:           "Records.wal",
+			WalHeaderSize: headerSize,
+			PathToWALFile: "Records.wal",
+			LoggingLevel:  "Debug",
 		}
 		// Overwrite if config file contains values
 		file, fileErr := os.Open(filepath)
@@ -54,13 +56,9 @@ func InitConfig(filepath string, staticSize int) (*Config, error) {
 		defer file.Close()
 
 		decoder := json.NewDecoder(file)
-		if decodeErr := decoder.Decode(appConfig); decodeErr != nil {
+		if decodeErr := decoder.Decode(AppConfig); decodeErr != nil {
 			err = fmt.Errorf("invalid config file: %w", decodeErr)
 		}
 	})
-	return appConfig, err
-}
-
-func GetAppConfig() *Config {
-	return appConfig
+	return AppConfig, err
 }

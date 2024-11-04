@@ -5,9 +5,10 @@
     "wal_segment_size": 500,
     "compaction_algorithm": "size-tiered", 
     "lsm_tree_levels": 4,
+    "logging_level": "Debug",
     "token_bucket": {
         "capacity": 3,
-        "reset_frequency_seconds": 1
+        "refill_interval": 1
     },
-    "pathToWALFile":"Records.wal"
+    "path_to_wal_file":"Records.wal"
 }

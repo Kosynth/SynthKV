@@ -20,7 +20,7 @@ func NewBlockManager(filePath string) *BlockManager {
 	}
 	return &BlockManager{
 		Cache:     NewBlockCache(),
-		blockSize: config.GetAppConfig().BlockSize,
+		blockSize: config.AppConfig.BlockSize,
 		file:      file,
 	}
 }
