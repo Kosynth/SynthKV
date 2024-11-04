@@ -1,6 +1,7 @@
 package records
 
 import (
+	"KVwithWAL/config"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -46,8 +47,8 @@ func CreateRecord(operation operationType, key string, value []byte) WalRecord {
 		key:       key,
 		value:     value,
 		timeStamp: time.Now(),
-		totalSize: uint64(4 + 16 + 1 + 8 + 8 + len(key) + len(value)), //uint64(len(key) + len(value) + config.GetAppConfig().StaticWALAttributesSize),
-		cRC32:     uint32(0),                                          //calculate this when converting to bytes
+		totalSize: uint64(config.AppConfig.WalHeaderSize + len(key) + len(value)), //uint64(len(key) + len(value) + config.AppConfig.StaticWALAttributesSize),
+		cRC32:     uint32(0),                                                      //calculate this when converting to bytes
 		keySize:   uint64(len(key)),
 		valueSize: uint64(len(value)),
 		tombstone: false,

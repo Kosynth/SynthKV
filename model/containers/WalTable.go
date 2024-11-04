@@ -18,7 +18,7 @@ type WalTable struct {
 }
 
 func NewWalTable(uuid string, blockManager *storageTools.BlockManager) *WalTable {
-	segmentSize := int64(config.GetAppConfig().WalSegmentSize)
+	segmentSize := int64(config.AppConfig.WalSegmentSize)
 	return &WalTable{
 		uuid:         uuid,
 		blockManager: blockManager,
@@ -162,7 +162,7 @@ func (wt *WalTable) scanSegment(segment *WalSegment) (int64, error) {
 		}
 
 		offset += totalSize
-		if offset-segment.startOffset >= int64(config.GetAppConfig().WalSegmentSize) {
+		if offset-segment.startOffset >= int64(config.AppConfig.WalSegmentSize) {
 			break
 		}
 

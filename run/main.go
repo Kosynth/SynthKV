@@ -3,6 +3,7 @@ package main
 import (
 	"KVwithWAL/config"
 	"KVwithWAL/initUtils"
+	"KVwithWAL/logger"
 	"KVwithWAL/model/containers"
 	"KVwithWAL/model/records"
 	"KVwithWAL/storageTools"
@@ -10,18 +11,21 @@ import (
 )
 
 func main() {
-	InitAndPrintCFG()
+	InitAndPrintConfig()
+	logger.Log.Info("Configuration loaded. Program is alive and running.")
 
 	//EVERYTHING BELOW THIS LINE IS FOR TESTING PURPOSES
+	logger.Log.Info("Starting Tests...")
 	TestSerialization()
 	TestIfTheCacheStillWorks()
 	GenerateRandomRecordsAndSaveToWal()
 	ReadFromWalAndPrint()
+	logger.Log.Info("Tests complete. Exiting")
 }
 
 func GenerateRandomRecordsAndSaveToWal() {
 	randomRecords := records.GenerateRandomRecords(1000)
-	blockManager := storageTools.NewBlockManager(config.GetAppConfig().PathToWALFile)
+	blockManager := storageTools.NewBlockManager(config.AppConfig.PathToWALFile)
 	walTable := containers.NewWalTable("123", blockManager)
 
 	for _, r := range randomRecords {
@@ -39,7 +43,7 @@ func GenerateRandomRecordsAndSaveToWal() {
 	fmt.Printf(records.GetJsonRecord(ReadRecords[0]))
 }
 func ReadFromWalAndPrint() {
-	blockManager := storageTools.NewBlockManager("Records.wal")
+	blockManager := storageTools.NewBlockManager(config.AppConfig.PathToWALFile)
 	walTable := containers.NewWalTable("test-uuid", blockManager)
 	err := walTable.LoadSegments()
 	if err != nil {
@@ -72,10 +76,10 @@ func TestIfTheCacheStillWorks() {
 	for _, r := range randomRecords {
 		data = append(data, records.ToBytes(r)...)
 	}
-	totalBlocks := (len(data) + config.GetAppConfig().BlockSize - 1) / config.GetAppConfig().BlockSize
+	totalBlocks := (len(data) + config.AppConfig.BlockSize - 1) / config.AppConfig.BlockSize
 	for i := 0; i < totalBlocks; i++ {
-		start := i * config.GetAppConfig().BlockSize
-		end := start + config.GetAppConfig().BlockSize
+		start := i * config.AppConfig.BlockSize
+		end := start + config.AppConfig.BlockSize
 
 		if end > len(data) {
 			end = len(data)
@@ -85,7 +89,7 @@ func TestIfTheCacheStillWorks() {
 		blockManager.WriteBlock(i, chunk)
 	}
 	//fmt.Printf("Data: %+v\n", data)
-	fmt.Printf("DataLength: %d bytes || Written %d blocks of size %d to %s\n", len(data), totalBlocks, config.GetAppConfig().BlockSize, file)
+	fmt.Printf("DataLength: %d bytes || Written %d blocks of size %d to %s\n", len(data), totalBlocks, config.AppConfig.BlockSize, file)
 
 	//Testing cache
 	var found bool
@@ -119,7 +123,8 @@ func TestIfTheCacheStillWorks() {
 	}
 	blockManager.Cache.PrintCacheState()
 }
-func InitAndPrintCFG() {
+func InitAndPrintConfig() {
+
 	cfg, _ := initUtils.InitializeConfiguration("config/appConfig.json")
 	fmt.Printf("Config: %+v\n", cfg)
 }
